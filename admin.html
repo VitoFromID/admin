@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pesan Masuk — Vito</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&family=Dancing+Script:wght@600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --rose: #D4748E; --rose-light: #F2B8C6; --mauve: #7C4A5C;
+      --mauve-dark: #4B2336; --cream: #FFF8F9; --blush: #FAF0F3;
+      --text-dark: #2E1520; --text-soft: #A07080;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Lato', sans-serif; font-weight: 300; background: var(--blush); color: var(--text-dark); min-height: 100vh; }
+
+    /* LOGIN */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(145deg, #1a0a10, #2e1220, #1a0a10);
+    }
+    .login-box {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(212,116,142,0.3);
+      border-radius: 20px; padding: 2.5rem 2rem; text-align: center; width: 320px;
+      backdrop-filter: blur(10px);
+    }
+    .login-box h1 { font-family: 'Dancing Script', cursive; font-size: 2rem; color: #F2B8C6; margin-bottom: 0.3rem; }
+    .login-box p { font-size: 0.85rem; color: rgba(255,255,255,0.45); margin-bottom: 1.5rem; letter-spacing: 0.05em; }
+    .login-box input {
+      width: 100%; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid rgba(212,116,142,0.4);
+      background: rgba(255,255,255,0.08); color: #fff; font-size: 1rem; outline: none;
+      margin-bottom: 1rem; text-align: center; letter-spacing: 0.15em;
+    }
+    .login-box input::placeholder { color: rgba(255,255,255,0.3); }
+    .login-btn {
+      width: 100%; padding: 0.85rem; border: none; border-radius: 100px;
+      background: linear-gradient(135deg, var(--rose), var(--mauve));
+      color: #fff; font-size: 0.95rem; cursor: pointer; letter-spacing: 0.05em;
+      transition: opacity 0.2s;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-error { color: #F2B8C6; font-size: 0.85rem; margin-top: 0.7rem; min-height: 1.2em; }
+
+    /* ADMIN PAGE */
+    #admin-page { display: none; max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    .admin-header { text-align: center; margin-bottom: 2.5rem; }
+    .admin-header h1 { font-family: 'Playfair Display', serif; font-style: italic; font-size: 2.2rem; color: var(--mauve-dark); }
+    .admin-header p { color: var(--text-soft); font-size: 0.85rem; margin-top: 0.3rem; }
+    .refresh-btn {
+      display: block; margin: 0 auto 2rem; padding: 0.6rem 1.8rem; border: 1.5px solid var(--rose);
+      border-radius: 100px; background: transparent; color: var(--rose); font-size: 0.85rem;
+      cursor: pointer; transition: background 0.2s, color 0.2s; letter-spacing: 0.05em;
+    }
+    .refresh-btn:hover { background: var(--rose); color: #fff; }
+
+    .empty-state { text-align: center; padding: 3rem; color: var(--text-soft); font-style: italic; }
+
+    .msg-card {
+      background: #fff; border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.2rem;
+      box-shadow: 0 2px 16px rgba(124,74,92,0.07); border-left: 3px solid var(--rose-light);
+      animation: fadeUp 0.5s ease both;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .msg-text { font-size: 1rem; line-height: 1.8; color: var(--text-dark); margin-bottom: 0.6rem; white-space: pre-wrap; }
+    .msg-time { font-size: 0.75rem; color: var(--text-soft); }
+
+    .badge {
+      display: inline-block; background: var(--rose); color: #fff; border-radius: 100px;
+      padding: 0.15rem 0.7rem; font-size: 0.75rem; margin-left: 0.5rem; vertical-align: middle;
+    }
+    #loading { text-align: center; padding: 2rem; color: var(--text-soft); }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>Inbox Vito</h1>
+      <p>masukkan password untuk masuk</p>
+      <input type="password" id="pwd-input" placeholder="••••••••" />
+      <button class="login-btn" id="login-btn">Masuk</button>
+      <p class="login-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div id="admin-page">
+    <div class="admin-header">
+      <h1>Pesan dari Riska <span class="badge" id="msg-count">0</span></h1>
+      <p>semua pesan yang dikirim dari halaman ulang tahun</p>
+    </div>
+    <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+    <div id="msg-list"><div id="loading">Memuat pesan...</div></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD0zNcrTjHg7K7X_2jW7XtUys2CQYxQ5Nc",
+      authDomain: "letters-for-me.firebaseapp.com",
+      projectId: "letters-for-me",
+      storageBucket: "letters-for-me.firebasestorage.app",
+      messagingSenderId: "1037502814265",
+      appId: "1:1037502814265:web:60b59d292d1e9c339095e8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // ── PASSWORD (ganti sesuai keinginan kamu) ──
+    const ADMIN_PASSWORD = 'vito2026';
+
+    const loginScreen = document.getElementById('login-screen');
+    const adminPage   = document.getElementById('admin-page');
+    const pwdInput    = document.getElementById('pwd-input');
+    const loginBtn    = document.getElementById('login-btn');
+    const loginError  = document.getElementById('login-error');
+    const msgList     = document.getElementById('msg-list');
+    const msgCount    = document.getElementById('msg-count');
+    const refreshBtn  = document.getElementById('refresh-btn');
+
+    loginBtn.addEventListener('click', () => {
+      if (pwdInput.value === ADMIN_PASSWORD) {
+        loginScreen.style.display = 'none';
+        adminPage.style.display   = 'block';
+        loadMessages();
+      } else {
+        loginError.textContent = 'Password salah 🌸';
+      }
+    });
+
+    pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
+    refreshBtn.addEventListener('click', loadMessages);
+
+    async function loadMessages() {
+      msgList.innerHTML = '<div id="loading">Memuat pesan...</div>';
+      try {
+        const q    = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          msgList.innerHTML = '<p class="empty-state">Belum ada pesan 🌸</p>';
+          msgCount.textContent = '0';
+          return;
+        }
+
+        msgCount.textContent = snap.size;
+        msgList.innerHTML    = '';
+
+        snap.forEach(doc => {
+          const d    = doc.data();
+          const time = d.createdAt?.toDate
+            ? d.createdAt.toDate().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+            : '—';
+
+          const card = document.createElement('div');
+          card.className   = 'msg-card';
+          card.innerHTML   = `
+            <p class="msg-text">${escapeHtml(d.text)}</p>
+            <p class="msg-time">🕐 ${time}</p>
+          `;
+          msgList.appendChild(card);
+        });
+      } catch (err) {
+        msgList.innerHTML = `<p class="empty-state">Gagal memuat: ${err.message}</p>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
